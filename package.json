@@ -1,0 +1,13 @@
+{
+  "name": "minitrade",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@libsql/client": "^0.15.15",
+    "drizzle-orm": "^0.44.6"
+  },
+  "devDependencies": {
+    "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.31.5"
+  }
+}
