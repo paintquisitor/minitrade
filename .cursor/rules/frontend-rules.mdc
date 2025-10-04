@@ -1,0 +1,69 @@
+---
+globs: frontend/src/**/*.{tsx},frontend/src/components/**/*.{tsx},frontend/src/features/*/components/**/*.{tsx},frontend/src/hooks/**/*.ts,frontend/src/lib/**/*.ts,frontend/src/stores/**/*.ts
+alwaysApply: false
+---
+# Frontend Rules
+
+## Core Principles
+- TypeScript for all components/utilities
+- Functional components with hooks
+- React Context for global state, local state for components
+- Props validation with TS interfaces
+- Component composition over inheritance
+- Accessibility: semantic HTML, ARIA labels, keyboard nav
+- Performance: `useCallback`, `memo`, proper `useEffect` deps
+- Error boundaries for error handling
+
+## Styling Stack
+**Tailwind CSS 3.4.10 + PostCSS 8.4.41 + Autoprefixer 10.4.20 + clsx 2.1.1**
+
+- Utility-first: prefer utilities over custom CSS
+- Responsive: `sm:`, `md:`, `lg:`, `xl:`, `2xl:`
+- Conditional classes: use `clsx()` for dynamic classNames
+- Dark mode: `dark:` variant
+
+```js
+// postcss.config.js
+module.exports = { plugins: { tailwindcss: {}, autoprefixer: {} }}
+```
+
+```tsx
+// clsx usage
+import { clsx } from 'clsx';
+const classes = clsx(
+  'px-4 py-2 rounded',
+  isActive && 'bg-blue-500',
+  isDisabled && 'opacity-50'
+);
+```
+
+## React Components
+**Architecture:** Presentational (UI) + Container (data/state) + Compound (shared context)
+
+- Pure functions for UI components
+- Container components handle data fetching
+- Use React.memo, useCallback, useMemo for performance
+- Test behavior, not implementation
+- Semantic HTML + ARIA labels for accessibility
+
+## React Hooks
+- Names start with `use*`, no conditional calls, complete deps arrays
+- Business logic in services/lib; hooks compose with UI/state
+
+## Frontend Libraries (/lib/)
+- Pure functions only; no React imports
+- Export configured HTTP clients (no raw `fetch`)
+- No side-effects on import
+
+
+## Anti-patterns
+- Business logic in presentation components
+- Using `any` for props
+- Missing error boundaries
+- Inline styles instead of Tailwind utilities
+- Missing accessibility (ARIA, keyboard nav)
+- Refs during rendering
+- Combined logic in single `useEffect`
+- Direct state mutations
+- CSS-in-JS instead of Tailwind
+- Not using clsx for conditional classes

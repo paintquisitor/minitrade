@@ -3,6 +3,9 @@ import type { Logger } from 'pino';
 import { z } from 'zod';
 import { and, eq, inArray, like, sql } from 'drizzle-orm';
 import type { LibSQLDatabase } from 'drizzle-orm/libsql';
+import multer from 'multer';
+import { promises as fs } from 'fs';
+import path from 'path';
 import {
   trades,
   tradeTypes,
@@ -27,6 +30,7 @@ const createTradeSchema = z.object({
   tags: z.array(z.string()).max(20).optional(),
   status: z.enum(tradeStatuses).default('open'),
   expiresAt: z.string().datetime().optional(),
+  imageUrls: z.array(z.string()).optional(),
 });
 
 const listTradesQuerySchema = z.object({
@@ -55,10 +59,61 @@ export function createTradesRouter(deps: { db: LibSQLDatabase; logger: Logger })
   const { db, logger } = deps;
   const router = Router();
 
+  // Configure multer for image uploads
+  const uploadDir = path.join(process.cwd(), 'uploads');
+  const storage = multer.diskStorage({
+    destination: async (req, file, cb) => {
+      try {
+        await fs.mkdir(uploadDir, { recursive: true });
+        cb(null, uploadDir);
+      } catch (error) {
+        cb(error as Error, uploadDir);
+      }
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, 'trade-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  });
+
+  const upload = multer({
+    storage,
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5MB limit
+    },
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed!') as any, false);
+      }
+    }
+  });
+
+  // POST /v1/upload/images -> upload trade images
+  router.post('/v1/upload/images', upload.array('images', 8), async (req, res) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+
+      if (!files || files.length === 0) {
+        return fail(res, 'No files uploaded', 400);
+      }
+
+      const imageUrls = files.map(file => `/uploads/${file.filename}`);
+      return ok(res, { imageUrls }, 201);
+    } catch (err: any) {
+      logger.error({ err }, 'failed to upload images');
+      return fail(res, 'Failed to upload images', 500);
+    }
+  });
+
+
   // POST /v1/trades -> create new trade
   router.post('/v1/trades', async (req, res) => {
     try {
+      console.log('Received request to create trade:', req.body);
       const body = createTradeSchema.parse(req.body);
+      console.log('Parsed body:', body);
       const inserted = await db
         .insert(trades)
         .values({
@@ -66,15 +121,16 @@ export function createTradesRouter(deps: { db: LibSQLDatabase; logger: Logger })
           type: body.type,
           title: body.title,
           body: body.body,
-          tags: (body.tags ?? null) as unknown as string[] | null,
+          tags: body.tags && body.tags.length > 0 ? JSON.stringify(body.tags) : null,
           status: body.status ?? 'open',
           expiresAt: body.expiresAt ?? null,
+          imageUrls: body.imageUrls && body.imageUrls.length > 0 ? JSON.stringify(body.imageUrls) : null,
         })
         .returning();
 
       return ok(res, inserted[0], 201);
     } catch (err: any) {
-      logger.error({ err }, 'failed to create trade');
+      logger.error({ err, message: err.message, stack: err.stack }, 'failed to create trade');
       if (err instanceof z.ZodError) return fail(res, 'Invalid request', 400, { issues: err.issues });
       return fail(res, 'Internal error', 500);
     }
@@ -104,7 +160,15 @@ export function createTradesRouter(deps: { db: LibSQLDatabase; logger: Logger })
         .where(where as any)
         .limit(query.limit)
         .offset(query.offset);
-      return ok(res, rows);
+
+      // Parse JSON fields for each row
+      const parsedRows = rows.map(row => ({
+        ...row,
+        tags: row.tags ? JSON.parse(row.tags as string) : null,
+        imageUrls: row.imageUrls ? JSON.parse(row.imageUrls as string) : null,
+      }));
+
+      return ok(res, parsedRows);
     } catch (err: any) {
       logger.error({ err }, 'failed to list trades');
       if (err instanceof z.ZodError) return fail(res, 'Invalid query', 400, { issues: err.issues });
@@ -117,13 +181,22 @@ export function createTradesRouter(deps: { db: LibSQLDatabase; logger: Logger })
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) return fail(res, 'Invalid id', 400);
-      const row = await db.query.trades.findFirst({ where: eq(trades.id, id) as any });
+      const rows = await db.select().from(trades).where(eq(trades.id, id)).limit(1);
+      const row = rows[0];
       if (!row) return fail(res, 'Not found', 404);
+
+      // Parse JSON fields
+      const parsedRow = {
+        ...row,
+        tags: row.tags ? JSON.parse(row.tags as string) : null,
+        imageUrls: row.imageUrls ? JSON.parse(row.imageUrls as string) : null,
+      };
+
       const [{ cnt }] = await db
         .select({ cnt: sql<number>`cast(count(*) as int)` })
         .from(proposals)
         .where(eq(proposals.tradeId, id));
-      return ok(res, { ...row, proposalsCount: cnt });
+      return ok(res, { ...parsedRow, proposalsCount: cnt });
     } catch (err: any) {
       logger.error({ err }, 'failed to get trade');
       return fail(res, 'Internal error', 500);
@@ -136,7 +209,8 @@ export function createTradesRouter(deps: { db: LibSQLDatabase; logger: Logger })
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) return fail(res, 'Invalid id', 400);
       const { actorId } = actorSchema.parse(req.body);
-      const row = await db.query.trades.findFirst({ where: eq(trades.id, id) as any });
+      const rows = await db.select().from(trades).where(eq(trades.id, id)).limit(1);
+      const row = rows[0];
       if (!row) return fail(res, 'Not found', 404);
       if (row.creatorId !== actorId) return fail(res, 'Forbidden', 403);
       if (row.status !== 'open') return fail(res, 'Trade not open', 409);
@@ -156,7 +230,8 @@ export function createTradesRouter(deps: { db: LibSQLDatabase; logger: Logger })
       if (!Number.isInteger(id) || id <= 0) return fail(res, 'Invalid id', 400);
       const body = createProposalSchema.parse(req.body);
 
-      const tradeRow = await db.query.trades.findFirst({ where: eq(trades.id, id) as any });
+      const tradeRows = await db.select().from(trades).where(eq(trades.id, id)).limit(1);
+      const tradeRow = tradeRows[0];
       if (!tradeRow) return fail(res, 'Trade not found', 404);
       if (tradeRow.status !== 'open') return fail(res, 'Trade not open', 409);
 
@@ -221,7 +296,8 @@ export function createTradesRouter(deps: { db: LibSQLDatabase; logger: Logger })
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) return fail(res, 'Invalid id', 400);
-      const prop = await db.query.proposals.findFirst({ where: eq(proposals.id, id) as any });
+      const propRows = await db.select().from(proposals).where(eq(proposals.id, id)).limit(1);
+      const prop = propRows[0];
       if (!prop) return fail(res, 'Not found', 404);
       const items = await db.select().from(proposalItems).where(eq(proposalItems.proposalId, id));
       return ok(res, { ...prop, items });
@@ -237,7 +313,8 @@ export function createTradesRouter(deps: { db: LibSQLDatabase; logger: Logger })
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) return fail(res, 'Invalid id', 400);
       const { actorId } = actorSchema.parse(req.body);
-      const prop = await db.query.proposals.findFirst({ where: eq(proposals.id, id) as any });
+      const propRows = await db.select().from(proposals).where(eq(proposals.id, id)).limit(1);
+      const prop = propRows[0];
       if (!prop) return fail(res, 'Not found', 404);
       if (prop.proposerId !== actorId) return fail(res, 'Forbidden', 403);
       if (prop.status !== 'pending') return fail(res, 'Proposal not pending', 409);
@@ -256,9 +333,11 @@ export function createTradesRouter(deps: { db: LibSQLDatabase; logger: Logger })
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) return fail(res, 'Invalid id', 400);
       const { actorId } = actorSchema.parse(req.body);
-      const prop = await db.query.proposals.findFirst({ where: eq(proposals.id, id) as any });
+      const propRows = await db.select().from(proposals).where(eq(proposals.id, id)).limit(1);
+      const prop = propRows[0];
       if (!prop) return fail(res, 'Not found', 404);
-      const tradeRow = await db.query.trades.findFirst({ where: eq(trades.id, prop.tradeId) as any });
+      const tradeRows = await db.select().from(trades).where(eq(trades.id, prop.tradeId)).limit(1);
+      const tradeRow = tradeRows[0];
       if (!tradeRow) return fail(res, 'Trade not found', 404);
       if (tradeRow.creatorId !== actorId) return fail(res, 'Forbidden', 403);
       if (prop.status !== 'pending') return fail(res, 'Proposal not pending', 409);

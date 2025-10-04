@@ -1,0 +1,34 @@
+---
+globs: backend/src/**/*.ts,frontend/src/**/*.ts,frontend/src/**/*.tsx
+alwaysApply: false
+---
+# TypeScript Patterns
+
+## Rules
+- Strict config (`strict: true`)
+- Prefer type inference over explicit annotations
+- Interfaces for objects, types for unions
+- Avoid `any`; use `unknown` for unknowns
+- Utility types: `Partial`, `Pick`, `Omit`, `Record`
+- Template literals for string types
+- Consistent naming (camelCase, PascalCase)
+
+## Patterns
+- Type guards for runtime checking
+- Discriminated unions for state
+- Function overloads for complex signatures
+- Readonly for immutable data
+- Branded types for safety
+
+## Async
+- Promise types with async/await
+- Typed error handling
+- Proper timeout/retry patterns
+
+## Anti-patterns
+- Using `any` without justification
+- Missing type guards
+- Ignoring compiler warnings
+- Type assertions without validation
+- Mutating parameters
+- Mixed naming conventions

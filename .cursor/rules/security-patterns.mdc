@@ -1,0 +1,45 @@
+---
+globs: backend/src/middlewares/**/*.ts,backend/src/auth/**/*.ts
+alwaysApply: false
+---
+# Security Patterns
+
+## Rules
+- Environment variables for secrets (never hardcode)
+- Session management with httpOnly cookies
+- Validate/sanitize all user inputs
+- Prepared statements (prevent SQL injection)
+- Rate limiting + request size limits
+- Security headers (CORS, CSP, XSS protection)
+- Log security events (no sensitive data)
+- HTTPS in production
+- Authentication/authorization checks
+- Principle of least privilege
+
+## Authentication
+- Secure session tokens with expiration
+- Proper logout (invalidate sessions)
+- bcrypt for password hashing
+- Account lockout after failed attempts
+- OAuth 2.0 for third-party auth
+
+## Authorization
+- Role-based access control (RBAC)
+- Check permissions at middleware + service levels
+- JWT for stateless auth
+- Token refresh mechanisms
+
+## Security Headers
+```ts
+res.setHeader('X-Content-Type-Options', 'nosniff');
+res.setHeader('X-Frame-Options', 'DENY');
+res.setHeader('X-XSS-Protection', '1; mode=block');
+```
+
+## Anti-patterns
+- Secrets in code/config files
+- Weak password hashing
+- Missing input validation
+- Sensitive data in logs
+- Missing security headers
+- No rate limiting

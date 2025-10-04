@@ -2,10 +2,12 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import session from 'express-session';
 import pino from 'pino';
 import { drizzle } from 'drizzle-orm/libsql';
 import { createClient } from '@libsql/client';
 import { createTradesRouter } from '../routes/trades.js';
+import { createAuthRouter } from '../routes/auth.js';
 
 // Database setup
 const client = createClient({
@@ -38,8 +40,43 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true,
 }));
+
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  },
+}));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Static files serving
+app.use('/uploads', (req, res, next) => {
+  // Add CORS headers for uploads
+  const origin = req.headers.origin;
+  if (origin === (process.env.FRONTEND_URL || 'http://localhost:5173')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.status(200).end();
+    return;
+  }
+
+  next();
+});
+
+app.use('/uploads', express.static('uploads'));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -51,6 +88,7 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
+app.use('/api', createAuthRouter({ db, logger }));
 app.use('/api', createTradesRouter({ db, logger }));
 
 // Error handling middleware

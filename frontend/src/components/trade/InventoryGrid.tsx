@@ -186,6 +186,7 @@ export function InventoryGrid({ tradeId, isCreator }: InventoryGridProps) {
                 <Badge variant="secondary" className="text-xs">
                   {item.faction}
                 </Badge>
+
               </div>
               <div className="absolute top-2 right-2">
                 <Badge variant="outline" className="text-xs bg-background/80">
@@ -236,3 +237,4 @@ export function InventoryGrid({ tradeId, isCreator }: InventoryGridProps) {
     </div>
   );
 }
+

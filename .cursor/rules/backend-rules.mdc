@@ -1,0 +1,82 @@
+---
+globs: backend/src/**/*.ts,backend/src/routes/**/*.ts,backend/src/controllers/**/*.ts,backend/src/services/**/*.ts,backend/src/db/**/*.ts,backend/src/schemas/**/*.ts
+alwaysApply: false
+---
+# Backend Rules
+
+**Architecture:** `routes → controllers → services → repositories`
+
+## Core Principles
+- No business logic in HTTP handlers
+- Validate all inputs with Zod at boundaries
+- Standard response: `{ success: boolean, data?: T, error?: { code, message } }`
+- Throw `DomainError` with stable codes; HTTP 500 only for unknown faults
+- Test critical paths (unit for services, integration for endpoints)
+
+## API Routes & Controllers
+**Pattern:** Validate → call service → map result to HTTP
+
+- Validate `params`, `query`, `body` with Zod (`safeParse`). Return 400 on failure
+- Status codes: 200/201 OK, 400 validation, 401/403 auth, 404 not found, 409 conflict, 500 unknown
+- Never leak stack traces or ORM errors
+- Use middleware for auth, logging, CORS
+
+### Express Template
+```ts
+const schema = z.object({ email: z.string().email() });
+
+export async function handler(req: Request, res: Response) {
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.message }});
+  }
+  
+  try {
+    const data = await service.exec(parsed.data);
+    res.json({ success: true, data });
+  } catch (error) {
+    const { status, code, message } = mapDomainError(error);
+    res.status(status).json({ success: false, error: { code, message }});
+  }
+}
+```
+
+## Service Layer
+**Pattern:** Orchestrate repositories + business logic
+
+- Inject dependencies via constructor/DI
+- Coordinate transactions for atomic multi-repo updates
+- Throw `DomainError` with stable codes (`USER_NOT_FOUND`, etc.)
+- Return domain objects, not HTTP responses
+- Use async/await consistently
+
+```ts
+export class Service {
+  constructor(private readonly repo: Repository) {}
+  
+  async execute(input: InputDto): Promise<Result> {
+    // Business logic here
+    return await this.repo.save(data);
+  }
+}
+```
+
+## Database & Persistence
+**Stack:** Drizzle ORM + libsql/Turso
+
+- Use prepared statements (prevents SQL injection)
+- Transactions for multi-table operations
+- Proper indexing for performance
+- Versioned migrations with rollback
+- Connection pooling
+- Consistent naming (snake_case for tables/columns)
+
+## Anti-patterns
+- Business logic in controllers/routes
+- Database calls in HTTP handlers  
+- Using `any` without justification
+- Hardcoded config values
+- Services creating HTTP responses
+- Mixing Promise.then() with async/await
+- Missing input validation
+- Circular service dependencies

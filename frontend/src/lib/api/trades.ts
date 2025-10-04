@@ -10,6 +10,7 @@ interface Trade {
   title: string;
   body?: string;
   tags?: string[];
+  imageUrls?: string[];
   status: 'open' | 'closed' | 'cancelled' | 'expired';
   expiresAt?: string;
   createdAt: string;

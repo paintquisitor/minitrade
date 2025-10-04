@@ -1,0 +1,36 @@
+---
+alwaysApply: true
+---
+# Common Instructions
+
+**Scope:** Global quality and architecture guardrails for the entire repository.
+
+## Architecture Principles
+- Follow layered architecture patterns with clear separation of concerns.
+- Implement proper dependency injection and inversion of control.
+- Use domain-driven design principles for complex business logic.
+- Maintain clear boundaries between layers and modules.
+- Follow SOLID principles in code design.
+
+**See:** `backend-rules.mdc` for backend-specific patterns, `frontend-rules.mdc` for frontend patterns, `typescript-patterns.mdc` for TypeScript principles, and `security-patterns.mdc` for security guidelines.
+
+## Global Checklist (before saving)
+- [ ] No `any`; all types inferred or declared.
+- [ ] All external inputs validated with appropriate schemas.
+- [ ] No cross-layer leaks between architectural boundaries.
+- [ ] Logs contain no secrets or PII.
+- [ ] Critical flows have tests/fixtures.
+- [ ] Environment variables used for configuration.
+- [ ] Error handling implemented for async operations.
+- [ ] Code follows established patterns and conventions.
+
+## Global Anti-patterns
+- Using `any` type without justification.
+- Hardcoding URLs or configuration values.
+- Ad-hoc manual validation scattered across the codebase.
+- Ignoring established architectural patterns.
+- Not following consistent naming conventions.
+- Missing proper error handling.
+- Not implementing proper logging.
+- Violating layer boundaries.
+

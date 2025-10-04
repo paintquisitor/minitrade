@@ -1,0 +1,37 @@
+---
+alwaysApply: true
+---
+# Rule Priorities and Application Order
+
+**Purpose:** Defines the hierarchy and precedence when multiple rules apply to the same file.
+
+## Priority Order (highest to lowest)
+
+1. **backend-rules.mdc** → Most specific for API handlers, services, and database operations.
+   - Takes precedence over security-patterns.mdc for backend-specific security implementations.
+
+2. **frontend-rules.mdc** → Most specific for React components, hooks, and UI styling.
+   - Takes precedence over typescript-patterns.mdc for frontend-specific TypeScript usage.
+
+3. **security-patterns.mdc** → Middleware, authentication, and security validations.
+   - Has priority over common-instructions and typescript-patterns, but defers to backend-rules.mdc and frontend-rules.mdc.
+
+4. **typescript-patterns.mdc** → Baseline TypeScript patterns for all TS/TSX files.
+   - Always applied unless more specific rules exist above.
+
+5. **testing-guidelines.mdc** → Testing patterns for files in `backend/tests/**` and `frontend/tests/**`.
+   - Applied alongside other rules for test files.
+
+6. **common-instructions.mdc** → Global architectural guardrails.
+   - Always applied alongside other rules as architectural foundation.
+
+## Application Logic
+- Rules are applied in combination, not exclusively.
+- More specific rules override conflicting guidance from general rules.
+- Global rules (common-instructions.mdc) provide baseline that other rules build upon.
+- When rules conflict, follow the higher priority rule's guidance.
+
+## File Matching Examples
+- `backend/src/routes/auth.ts` → backend-rules.mdc + security-patterns.mdc + typescript-patterns.mdc + common-instructions.mdc
+- `frontend/src/components/Button.tsx` → frontend-rules.mdc + typescript-patterns.mdc + common-instructions.mdc
+- `backend/tests/auth.test.ts` → backend-rules.mdc + testing-guidelines.mdc + typescript-patterns.mdc + common-instructions.mdc

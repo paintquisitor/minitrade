@@ -1,31 +1,55 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { TradeDetail } from '@/components/trade';
+import { TradesList } from '@/components/trade/TradesList';
+import { CreateTrade } from '@/components/trade/CreateTrade';
+import { Login } from '@/components/auth/Login';
+import { Register } from '@/components/auth/Register';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { AuthProvider, useAuth } from '@/lib/auth';
+import { Navbar } from '@/components/ui/navbar';
 
-function App() {
-  return (
-    <div className="min-h-screen bg-background font-sans antialiased">
+function AppContent() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (user) {
+    return (
       <Routes>
+        <Route path="/trades/create" element={<CreateTrade />} />
+        <Route path="/trades" element={<TradesList />} />
         {/* Redirect /trade/ to /trade/1 */}
         <Route path="/trade" element={<Navigate to="/trade/1" replace />} />
         <Route path="/trade/:id" element={<TradeDetail />} />
-        <Route path="/" element={
-          <div className="flex items-center justify-center h-screen">
-            <div className="text-center">
-              <h1 className="text-4xl font-bold mb-4">Warhammer Marketplace</h1>
-              <p className="text-muted-foreground mb-8">
-                Przejdź do <code>/trade/1</code> aby zobaczyć przykład wymiany
-              </p>
-              <a
-                href="/trade/1"
-                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-              >
-                Zobacz przykład
-              </a>
-            </div>
-          </div>
-        } />
+        <Route path="/" element={<Navigate to="/trades" replace />} />
       </Routes>
-    </div>
+    );
+  }
+
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <div className="min-h-screen bg-background font-sans antialiased">
+        <Navbar />
+        <AppContent />
+      </div>
+    </AuthProvider>
   );
 }
 

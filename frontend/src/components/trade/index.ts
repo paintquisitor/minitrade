@@ -1,4 +1,7 @@
 export { TradeDetail } from './TradeDetail';
+export { TradesList } from './TradesList';
+export { CreateTrade } from './CreateTrade';
+export { ImageUpload } from './ImageUpload';
 export { TradeBasket } from './TradeBasket';
 export { FilterPanel } from './FilterPanel';
 export { InventoryGrid } from './InventoryGrid';

@@ -24,6 +24,7 @@ export const trades = sqliteTable('trades', {
   title: text('title').notNull(),
   body: text('body'),
   tags: text('tags', { mode: 'json' }).$type<string[] | null>(),
+  imageUrls: text('image_urls', { mode: 'json' }).$type<string[] | null>(),
   status: text('status').notNull().$type<TradeStatus>(),
   expiresAt: text('expires_at'),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
